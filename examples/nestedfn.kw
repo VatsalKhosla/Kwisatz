@@ -1,0 +1,8 @@
+int main(){
+    int x=10;
+    int add_x(int y){
+        return x+y;
+    }
+    print_int(add_x(5));
+    return 0;
+}

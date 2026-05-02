@@ -1,0 +1,17 @@
+struct Point{
+    int x;
+    int y;
+}
+
+int distance_sq(Point a,Point b){
+    int dx=a.x-b.x;
+    int dy=a.y-b.y;
+    return dx*dx+dy*dy;
+}
+
+int main(){
+    Point p1=new Point(1,2);
+    Point p2=new Point(4,6);
+    print_int(distance_sq(p1,p2));
+    return 0;
+}

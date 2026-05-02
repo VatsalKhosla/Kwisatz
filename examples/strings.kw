@@ -1,0 +1,11 @@
+int main(){
+    string greeting="hello, ";
+    string name="kwisatz";
+    string msg=concat(greeting,name);
+    int n=3;
+    while(n>0){
+        print_str(msg);
+        n=n-1;
+    }
+    return 0;
+}
