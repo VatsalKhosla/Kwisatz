@@ -1,0 +1,13 @@
+# Build output
+build/
+*.o
+*.a
+
+# Editor / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Compiled binaries
+kwisatz
