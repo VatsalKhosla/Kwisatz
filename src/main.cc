@@ -3,6 +3,7 @@
 #include <fstream> 
 #include <sstream>
 
+#include "kwisatz/ast/ast.h"
 #include "kwisatz/lex/lexer.h"
 #include "kwisatz/lex/token.h"
 #include "kwisatz/util/version.h"
