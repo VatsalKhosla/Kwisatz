@@ -11,4 +11,6 @@ include_directories(${CMAKE_SOURCE_DIR}/include)
 
 add_executable(kwisatz
     src/main.cc
+    src/lex/lexer.cc
+    src/lex/token.cc
 )

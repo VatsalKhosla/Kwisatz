@@ -1,6 +1,10 @@
 #include <cstdio>
 #include <string>
+#include <fstream> 
+#include <sstream>
 
+#include "kwisatz/lex/lexer.h"
+#include "kwisatz/lex/token.h"
 #include "kwisatz/util/version.h"
 
 int main(int argc, char** argv) {
@@ -10,8 +14,25 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    std::string input_path = argv[1];
-    std::printf("compiling %s\n", input_path.c_str());
+    std::string inputPath=argv[1];
+    std::ifstream in(inputPath);
+    if(!in){
+        std::fprintf(stderr, "Error: Could not open file %s\n", inputPath.c_str());
+        return 1;
+    }
+    std::stringstream buffer;
+    buffer<<in.rdbuf();
+    std::string source=buffer.str();
+    kwisatz::Lexer lex(std::move(source), inputPath); 
+    for(;;){
+        kwisatz::Token t=lex.next();
+        std::printf("%-12s %3d:%-3d %s\n",
+            kwisatz::tokenKindName(t.kind),
+            t.loc.line,
+            t.loc.column,
+            t.lexeme.c_str());
+        if(t.kind==kwisatz::TokenKind::EndOfFile) break;
+    }
     
     return 0;
 }
