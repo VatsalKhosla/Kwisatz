@@ -1,0 +1,12 @@
+struct Point{
+    int x;
+    int y;
+}
+
+int main(){
+    int a=5;
+    int b;
+    string s="hello";
+    bool flag=true;
+    return 0;
+}

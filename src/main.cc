@@ -3,6 +3,7 @@
 #include <fstream> 
 #include <sstream>
 
+#include "kwisatz/parse/parser.h"
 #include "kwisatz/ast/ast.h"
 #include "kwisatz/lex/lexer.h"
 #include "kwisatz/lex/token.h"
@@ -25,7 +26,14 @@ int main(int argc, char** argv) {
     buffer<<in.rdbuf();
     std::string source=buffer.str();
     kwisatz::Lexer lex(std::move(source), inputPath); 
-    for(;;){
+    kwisatz::Parser parser(lex);
+    kwisatz::Program prog=parser.parseProgram();
+
+    if(parser.hadError())return 1;
+    std::printf("parsed %zu top-level declarations\n",prog.decls.size());
+
+    //LEXER UNIT TEST
+    /*for(;;){
         kwisatz::Token t=lex.next();
         std::printf("%-12s %3d:%-3d %s\n",
             kwisatz::tokenKindName(t.kind),
@@ -33,7 +41,7 @@ int main(int argc, char** argv) {
             t.loc.column,
             t.lexeme.c_str());
         if(t.kind==kwisatz::TokenKind::EndOfFile) break;
-    }
+    }*/
     
     return 0;
 }

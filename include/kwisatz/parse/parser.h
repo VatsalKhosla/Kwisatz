@@ -32,6 +32,25 @@ private:
     Token expect(TokenKind k,const char* what);
 
     void error(const Token& tok,const std::string& msg);
+
+    bool looksLikeTypePrefix()const;
+    std::unique_ptr<Decl> parseTopDecl();
+    std::unique_ptr<FuncDecl> parseFuncDecl();
+    std::unique_ptr<StructDecl> parseStructDecl();
+    std::vector<Param> parseParams();
+    TypeRef parseTypeRef();
+
+    std::unique_ptr<BlockStmt> parseBlock();
+    std::unique_ptr<Stmt> parseStmt();
+    std::unique_ptr<Stmt> parseDeclStmt();
+    std::unique_ptr<Stmt> parseIf();
+    std::unique_ptr<Stmt> parseWhile();
+    std::unique_ptr<Stmt> parseReturn();
+    std::unique_ptr<Stmt> parseBreak();
+    std::unique_ptr<Stmt> parseAssignOrExprStmt();
+
+    std::unique_ptr<Expr> parseExpression();
+
 };
 
 }

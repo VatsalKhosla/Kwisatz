@@ -63,7 +63,220 @@ void Parser::error(const Token& tok,const std::string& msg){
 
 Program Parser::parseProgram(){
     Program prog;
+    while(!atEnd()){
+         std::size_t before=pos_;
+        std::unique_ptr<Decl> d=parseTopDecl();
+        if(d)prog.decls.push_back(std::move(d));
+        if(pos_==before)advance();
+    }
     return prog;
 }
 
+std::unique_ptr<Decl> Parser::parseTopDecl(){
+    if(check(TokenKind::KwStruct))return parseStructDecl();
+    return parseFuncDecl();
+}
+
+std::unique_ptr<StructDecl> Parser::parseStructDecl(){
+    SourceLocation loc=peek().loc;
+    expect(TokenKind::KwStruct,"'struct'");
+    Token nameTok=expect(TokenKind::Ident,"struct name");
+    expect(TokenKind::LBrace,"'{' after struct name");
+    std::vector<Field> fields;
+    while(!check(TokenKind::RBrace)&&!atEnd()){
+        std::size_t before=pos_;
+        SourceLocation fieldLoc=peek().loc;
+        TypeRef ty=parseTypeRef();
+        Token fname=expect(TokenKind::Ident,"field name");
+        expect(TokenKind::Semi,"';' after field");
+        fields.push_back(Field{std::move(ty),fname.lexeme,fieldLoc});
+        if(pos_==before)advance();
+    }
+    expect(TokenKind::RBrace,"'}'");
+    return std::make_unique<StructDecl>(loc,nameTok.lexeme,std::move(fields));
+}
+
+std::unique_ptr<FuncDecl> Parser::parseFuncDecl(){
+    SourceLocation loc=peek().loc;
+    TypeRef returnType=parseTypeRef();
+    Token nameTok=expect(TokenKind::Ident,"function name");
+    expect(TokenKind::LParen,"'(' after function name");
+    std::vector<Param> params=parseParams();
+    expect(TokenKind::RParen,"')' after parameters");
+    std::unique_ptr<BlockStmt> body=parseBlock();
+    return std::make_unique<FuncDecl>(loc,std::move(returnType),nameTok.lexeme,std::move(params),std::move(body));
+}
+
+std::vector<Param> Parser::parseParams(){
+    std::vector<Param> params;
+    if(check(TokenKind::RParen))return params;
+    for(;;){
+        SourceLocation loc=peek().loc;
+        TypeRef ty=parseTypeRef();
+        Token n=expect(TokenKind::Ident,"parameter name");
+        params.push_back(Param{std::move(ty),n.lexeme,loc});
+        if(!match(TokenKind::Comma))break;
+    }
+    return params;
+}
+
+TypeRef Parser::parseTypeRef(){
+    SourceLocation loc=peek().loc;
+    std::string name;
+    if(match(TokenKind::KwInt))name="int";
+    else if(match(TokenKind::KwBool))name="bool";
+    else if(match(TokenKind::KwString))name="string";
+    else if(match(TokenKind::KwVoid))name="void";
+    else if(check(TokenKind::Ident))name=advance().lexeme;
+    else{
+        error(peek(),"expected type");
+        return TypeRef{"<error>",0,loc};
+    }
+    int dims=0;
+    while(match(TokenKind::LBracket)){
+        expect(TokenKind::RBracket,"']' after '['");
+        dims++;
+    }
+    return TypeRef{std::move(name),dims,loc};
+}
+
+std::unique_ptr<BlockStmt> Parser::parseBlock(){
+    SourceLocation loc=peek().loc;
+    expect(TokenKind::LBrace,"'{'");
+    std::vector<std::unique_ptr<Stmt>> stmts;
+    while(!check(TokenKind::RBrace)&&!atEnd()){
+        std::size_t before=pos_;
+        std::unique_ptr<Stmt> s=parseStmt();
+        if(s)stmts.push_back(std::move(s));
+        if(pos_==before)advance();
+    }
+    expect(TokenKind::RBrace,"'}'");
+    return std::make_unique<BlockStmt>(loc,std::move(stmts));
+}
+
+std::unique_ptr<Stmt> Parser::parseStmt(){
+    if(check(TokenKind::LBrace))return parseBlock();
+    if(check(TokenKind::KwIf))return parseIf();
+    if(check(TokenKind::KwWhile))return parseWhile();
+    if(check(TokenKind::KwBreak))return parseBreak();
+    if(check(TokenKind::KwReturn))return parseReturn();
+    if(looksLikeTypePrefix())return parseDeclStmt();
+    return parseAssignOrExprStmt();
+}
+
+bool Parser::looksLikeTypePrefix()const{
+    TokenKind k=peek(0).kind;
+    bool startsType=
+        k==TokenKind::KwInt||
+        k==TokenKind::KwBool||
+        k==TokenKind::KwString||
+        k==TokenKind::KwVoid||
+        k==TokenKind::Ident;
+    if(!startsType)return false;
+    std::size_t off=1;
+    while(peek(off).kind==TokenKind::LBracket&&peek(off+1).kind==TokenKind::RBracket){
+        off+=2;
+    }
+    return peek(off).kind==TokenKind::Ident;
+}
+
+std::unique_ptr<Stmt> Parser::parseIf(){
+    SourceLocation loc=peek().loc;
+    expect(TokenKind::KwIf,"'if'");
+    expect(TokenKind::LParen,"'(' after 'if'");
+    auto cond=parseExpression();
+    expect(TokenKind::RParen,"')'");
+    auto thenBranch=parseBlock();
+    std::unique_ptr<Stmt> elseBranch;
+    if(match(TokenKind::KwElse)){
+        if(check(TokenKind::KwIf))elseBranch=parseIf();
+        else elseBranch=parseBlock();
+    }
+    return std::make_unique<IfStmt>(loc,std::move(cond),std::move(thenBranch),std::move(elseBranch));
+}
+
+std::unique_ptr<Stmt> Parser::parseWhile(){
+    SourceLocation loc=peek().loc;
+    expect(TokenKind::KwWhile,"'while'");
+    expect(TokenKind::LParen,"'(' after 'while'");
+    auto cond=parseExpression();
+    expect(TokenKind::RParen,"')'");
+    auto body=parseBlock();
+    return std::make_unique<WhileStmt>(loc,std::move(cond),std::move(body));
+}
+
+std::unique_ptr<Stmt> Parser::parseBreak(){
+    SourceLocation loc=peek().loc;
+    expect(TokenKind::KwBreak,"'break'");
+    expect(TokenKind::Semi,"';' after 'break'");
+    return std::make_unique<BreakStmt>(loc);
+}
+
+std::unique_ptr<Stmt> Parser::parseReturn(){
+    SourceLocation loc=peek().loc;
+    expect(TokenKind::KwReturn,"'return'");
+    std::unique_ptr<Expr> value;
+    if(!check(TokenKind::Semi))value=parseExpression();
+    expect(TokenKind::Semi,"';' after return");
+    return std::make_unique<ReturnStmt>(loc,std::move(value));
+}
+
+std::unique_ptr<Stmt> Parser::parseDeclStmt(){
+    SourceLocation loc=peek().loc;
+    TypeRef ty=parseTypeRef();
+    Token nameTok=expect(TokenKind::Ident,"name");
+    if(check(TokenKind::LParen)){
+        expect(TokenKind::LParen,"'('");
+        auto params=parseParams();
+        expect(TokenKind::RParen,"')'");
+        auto body=parseBlock();
+        auto fd=std::make_unique<FuncDecl>(loc,std::move(ty),nameTok.lexeme,std::move(params),std::move(body));
+        return std::make_unique<NestedFuncStmt>(loc,std::move(fd));
+    }
+    std::unique_ptr<Expr> init;
+    if(match(TokenKind::Eq))init=parseExpression();
+    expect(TokenKind::Semi,"';' after declaration");
+    return std::make_unique<VarDeclStmt>(loc,std::move(ty),nameTok.lexeme,std::move(init));
+}
+
+std::unique_ptr<Stmt> Parser::parseAssignOrExprStmt(){
+    SourceLocation loc=peek().loc;
+    auto lhs=parseExpression();
+    if(match(TokenKind::Eq)){
+        auto rhs=parseExpression();
+        expect(TokenKind::Semi,"';' after assignment");
+        return std::make_unique<AssignStmt>(loc,std::move(lhs),std::move(rhs));
+    }
+    expect(TokenKind::Semi,"';' after expression");
+    return std::make_unique<ExprStmtNode>(loc,std::move(lhs));
+}
+
+std::unique_ptr<Expr> Parser::parseExpression(){
+    SourceLocation loc=peek().loc;
+    const Token& t=peek();
+    switch(t.kind){
+        case TokenKind::IntLit:{
+            Token tk=advance();
+            long long v=0;
+            try{v=std::stoll(tk.lexeme);}
+            catch(const std::out_of_range&){error(tk,"integer literal out of range");}
+            return std::make_unique<IntLitExpr>(loc,v);
+        }
+        case TokenKind::StringLit:{
+            Token tk=advance();
+            return std::make_unique<StringLitExpr>(loc,tk.lexeme);
+        }
+        case TokenKind::KwTrue:advance();return std::make_unique<BoolLitExpr>(loc,true);
+        case TokenKind::KwFalse:advance();return std::make_unique<BoolLitExpr>(loc,false);
+        case TokenKind::KwNull:advance();return std::make_unique<NullLitExpr>(loc);
+        case TokenKind::Ident:{
+            Token tk=advance();
+            return std::make_unique<VarExpr>(loc,tk.lexeme);
+        }
+        default:
+            error(t,"expected expression");
+            advance();
+            return std::make_unique<NullLitExpr>(loc);
+    }
+}
 }
