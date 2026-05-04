@@ -133,8 +133,9 @@ TypeRef Parser::parseTypeRef(){
         return TypeRef{"<error>",0,loc};
     }
     int dims=0;
-    while(match(TokenKind::LBracket)){
-        expect(TokenKind::RBracket,"']' after '['");
+    while(check(TokenKind::LBracket)&&peek(1).kind==TokenKind::RBracket){
+        advance();
+        advance();
         dims++;
     }
     return TypeRef{std::move(name),dims,loc};
@@ -252,6 +253,127 @@ std::unique_ptr<Stmt> Parser::parseAssignOrExprStmt(){
 }
 
 std::unique_ptr<Expr> Parser::parseExpression(){
+    return parseOr();
+}
+
+std::unique_ptr<Expr> Parser::parseOr(){
+    auto left=parseAnd();
+    while(check(TokenKind::PipePipe)){
+        SourceLocation loc=peek().loc;
+        advance();
+        auto right=parseAnd();
+        left=std::make_unique<BinaryExpr>(loc,BinaryOp::Or,std::move(left),std::move(right));
+    }
+    return left;
+}
+
+std::unique_ptr<Expr> Parser::parseAnd(){
+    auto left=parseEquality();
+    while(check(TokenKind::AmpAmp)){
+        SourceLocation loc=peek().loc;
+        advance();
+        auto right=parseEquality();
+        left=std::make_unique<BinaryExpr>(loc,BinaryOp::And,std::move(left),std::move(right));
+    }
+    return left;
+}
+
+std::unique_ptr<Expr> Parser::parseEquality(){
+    auto left=parseComparison();
+    while(check(TokenKind::EqEq)||check(TokenKind::BangEq)){
+        SourceLocation loc=peek().loc;
+        BinaryOp op=check(TokenKind::EqEq)?BinaryOp::Eq:BinaryOp::Ne;
+        advance();
+        auto right=parseComparison();
+        left=std::make_unique<BinaryExpr>(loc,op,std::move(left),std::move(right));
+    }
+    return left;
+}
+
+std::unique_ptr<Expr> Parser::parseComparison(){
+    auto left=parseAdditive();
+    while(check(TokenKind::Lt)||check(TokenKind::Gt)||check(TokenKind::LtEq)||check(TokenKind::GtEq)){
+        SourceLocation loc=peek().loc;
+        BinaryOp op;
+        if(check(TokenKind::Lt))op=BinaryOp::Lt;
+        else if(check(TokenKind::Gt))op=BinaryOp::Gt;
+        else if(check(TokenKind::LtEq))op=BinaryOp::Le;
+        else op=BinaryOp::Ge;
+        advance();
+        auto right=parseAdditive();
+        left=std::make_unique<BinaryExpr>(loc,op,std::move(left),std::move(right));
+    }
+    return left;
+}
+std::unique_ptr<Expr> Parser::parseAdditive(){
+    auto left=parseMultiplicative();
+    while(check(TokenKind::Plus)||check(TokenKind::Minus)){
+        SourceLocation loc=peek().loc;
+        BinaryOp op=check(TokenKind::Plus)?BinaryOp::Add:BinaryOp::Sub;
+        advance();
+        auto right=parseMultiplicative();
+        left=std::make_unique<BinaryExpr>(loc,op,std::move(left),std::move(right));
+    }
+    return left;
+}
+
+std::unique_ptr<Expr> Parser::parseMultiplicative(){
+    auto left=parseUnary();
+    while(check(TokenKind::Star)||check(TokenKind::Slash)||check(TokenKind::Percent)){
+        SourceLocation loc=peek().loc;
+        BinaryOp op;
+        if(check(TokenKind::Star))op=BinaryOp::Mul;
+        else if(check(TokenKind::Slash))op=BinaryOp::Div;
+        else op=BinaryOp::Mod;
+        advance();
+        auto right=parseUnary();
+        left=std::make_unique<BinaryExpr>(loc,op,std::move(left),std::move(right));
+    }
+    return left;
+}
+
+std::unique_ptr<Expr> Parser::parseUnary(){
+    if(check(TokenKind::Minus)){
+        SourceLocation loc=peek().loc;
+        advance();
+        auto operand=parseUnary();
+        return std::make_unique<UnaryExpr>(loc,UnaryOp::Neg,std::move(operand));
+    }
+    if(check(TokenKind::Bang)){
+        SourceLocation loc=peek().loc;
+        advance();
+        auto operand=parseUnary();
+        return std::make_unique<UnaryExpr>(loc,UnaryOp::Not,std::move(operand));
+    }
+    return parsePostfix();
+}
+std::unique_ptr<Expr> Parser::parsePostfix(){
+    auto expr=parsePrimary();
+    for(;;){
+        if(check(TokenKind::LParen)){
+            SourceLocation loc=peek().loc;
+            advance();
+            auto args=parseArgs();
+            expect(TokenKind::RParen,"')'");
+            expr=std::make_unique<CallExpr>(loc,std::move(expr),std::move(args));
+        }else if(check(TokenKind::LBracket)){
+            SourceLocation loc=peek().loc;
+            advance();
+            auto idx=parseExpression();
+            expect(TokenKind::RBracket,"']'");
+            expr=std::make_unique<IndexExpr>(loc,std::move(expr),std::move(idx));
+        }else if(check(TokenKind::Dot)){
+            SourceLocation loc=peek().loc;
+            advance();
+            Token name=expect(TokenKind::Ident,"field name");
+            expr=std::make_unique<FieldExpr>(loc,std::move(expr),name.lexeme);
+        }else{
+            break;
+        }
+    }
+    return expr;
+}
+std::unique_ptr<Expr> Parser::parsePrimary(){
     SourceLocation loc=peek().loc;
     const Token& t=peek();
     switch(t.kind){
@@ -273,10 +395,50 @@ std::unique_ptr<Expr> Parser::parseExpression(){
             Token tk=advance();
             return std::make_unique<VarExpr>(loc,tk.lexeme);
         }
+        case TokenKind::LParen:{
+            advance();
+            auto inner=parseExpression();
+            expect(TokenKind::RParen,"')'");
+            return inner;
+        }
+        case TokenKind::KwNew:return parseNew(loc);
         default:
             error(t,"expected expression");
             advance();
             return std::make_unique<NullLitExpr>(loc);
     }
 }
+std::unique_ptr<Expr> Parser::parseNew(SourceLocation loc){
+    expect(TokenKind::KwNew,"'new'");
+    TypeRef ty=parseTypeRef();
+    if(check(TokenKind::LParen)){
+        if(ty.arrayDims!=0){
+            error(peek(),"cannot construct array type with '('; use '[length]'");
+        }
+        advance();
+        auto args=parseArgs();
+        expect(TokenKind::RParen,"')'");
+        return std::make_unique<NewStructExpr>(loc,ty.name,std::move(args));
+    }
+    if(check(TokenKind::LBracket)){
+        advance();
+        auto length=parseExpression();
+        expect(TokenKind::RBracket,"']'");
+        return std::make_unique<NewArrayExpr>(loc,std::move(ty),std::move(length));
+    }
+    error(peek(),"expected '(' or '[' after 'new <type>'");
+    return std::make_unique<NullLitExpr>(loc);
+}
+
+std::vector<std::unique_ptr<Expr>> Parser::parseArgs(){
+    std::vector<std::unique_ptr<Expr>> args;
+    if(check(TokenKind::RParen))return args;
+    for(;;){
+        args.push_back(parseExpression());
+        if(!match(TokenKind::Comma))break;
+    }
+    return args;
+}
+
+
 }
