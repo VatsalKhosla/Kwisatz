@@ -15,4 +15,6 @@ add_executable(kwisatz
     src/lex/token.cc
     src/parse/parser.cc
     src/ast/printer.cc
+    src/semant/type.cc
+    src/semant/env.cc
 )
