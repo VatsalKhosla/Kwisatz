@@ -13,6 +13,8 @@ struct TypeRef{
     int arrayDims;
     SourceLocation loc;
 };
+class Type; 
+
 enum class ExprKind{
     IntLit,
     StringLit,
@@ -40,6 +42,7 @@ class Expr{
 public:
     ExprKind kind;
     SourceLocation loc;
+    Type* type=nullptr;
     Expr(ExprKind kind, SourceLocation loc):kind(kind),loc(loc){}
     virtual ~Expr()=default;
 };

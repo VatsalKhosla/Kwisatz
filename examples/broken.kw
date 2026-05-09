@@ -1,0 +1,6 @@
+int main(){
+    int x=5;
+    bool y=x;
+    int z=undefined_name;
+    return "hello";
+}

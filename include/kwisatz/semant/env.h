@@ -14,6 +14,7 @@ enum class SymbolKind{
     Param,
     Func,
     Struct,
+    BuiltinLength,
 };
 
 struct Symbol{

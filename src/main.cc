@@ -4,6 +4,7 @@
 #include <sstream>
 #include <iostream>
 
+#include"kwisatz/semant/type_checker.h"
 #include "kwisatz/ast/printer.h"
 #include "kwisatz/parse/parser.h"
 #include "kwisatz/ast/ast.h"
@@ -33,6 +34,13 @@ int main(int argc, char** argv) {
 
     if(parser.hadError())return 1;
     std::printf("parsed %zu top-level declarations\n",prog.decls.size());
+
+    kwisatz::TypeContext tc;
+    kwisatz::TypeChecker tcheck(tc);
+    tcheck.check(prog);
+    if(tcheck.hadError())return 1;
+
+    std::printf("type-checked %zu top-level declarations\n",prog.decls.size());
 
     bool dumpAst=false;
    // std::string inputPath;

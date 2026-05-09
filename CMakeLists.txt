@@ -17,4 +17,5 @@ add_executable(kwisatz
     src/ast/printer.cc
     src/semant/type.cc
     src/semant/env.cc
+    src/semant/type_checker.cc
 )
