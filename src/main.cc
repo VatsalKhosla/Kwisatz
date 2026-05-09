@@ -2,7 +2,9 @@
 #include <string>
 #include <fstream> 
 #include <sstream>
+#include <iostream>
 
+#include "kwisatz/ast/printer.h"
 #include "kwisatz/parse/parser.h"
 #include "kwisatz/ast/ast.h"
 #include "kwisatz/lex/lexer.h"
@@ -31,6 +33,16 @@ int main(int argc, char** argv) {
 
     if(parser.hadError())return 1;
     std::printf("parsed %zu top-level declarations\n",prog.decls.size());
+
+    bool dumpAst=false;
+   // std::string inputPath;
+    for(int i=1;i<argc;i++){
+        std::string a=argv[i];
+        if(a=="--dump-ast")dumpAst=true;
+        else inputPath=a;
+    }
+
+    if(dumpAst)kwisatz::printProgram(prog,std::cout);
 
     //LEXER UNIT TEST
     /*for(;;){

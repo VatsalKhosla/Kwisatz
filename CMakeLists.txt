@@ -14,4 +14,5 @@ add_executable(kwisatz
     src/lex/lexer.cc
     src/lex/token.cc
     src/parse/parser.cc
+    src/ast/printer.cc
 )
