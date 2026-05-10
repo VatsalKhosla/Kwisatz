@@ -14,6 +14,8 @@ public:
 
     Access* allocLocal(bool escapes)override;
     int wordSize()const override{return kWordSize;}
+    Temp fp()const override;
+    Temp rv()const override;
 
 private:
     int nextOffset_;

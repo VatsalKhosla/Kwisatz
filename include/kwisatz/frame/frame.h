@@ -49,6 +49,8 @@ public:
 
     virtual Access* allocLocal(bool escapes)=0;
     virtual int wordSize()const=0;
+    virtual Temp fp()const=0;
+    virtual Temp rv()const=0;
 };
 
 }

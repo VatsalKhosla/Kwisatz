@@ -26,5 +26,13 @@ Access* MipsFrame::allocLocal(bool escapes){
     locals.push_back(std::move(a));
     return p;
 }
+Temp MipsFrame::fp()const{
+    static const Temp f=newTemp();
+    return f;
+}
+Temp MipsFrame::rv()const{
+    static const Temp r=newTemp();
+    return r;
+}
 
 }

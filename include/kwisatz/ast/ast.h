@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 
+#include"kwisatz/ir/tree.h"
 #include "kwisatz/frame/frame.h"
 #include "kwisatz/util/source_location.h"
 
@@ -255,6 +256,7 @@ public:
     std::vector<Param> params;
     std::unique_ptr<BlockStmt> body;
     std::unique_ptr<Frame> frame;
+    std::unique_ptr<ir::Stm> ir_body;
     FuncDecl(SourceLocation l,TypeRef rt,std::string n,std::vector<Param> p,std::unique_ptr<BlockStmt> b)
         :Decl(DeclKind::Func,l),returnType(std::move(rt)),name(std::move(n)),params(std::move(p)),body(std::move(b)){}
 };
