@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 
+#include "kwisatz/frame/frame.h"
 #include "kwisatz/util/source_location.h"
 
 namespace kwisatz {
@@ -164,6 +165,7 @@ public:
     std::string name;
     std::unique_ptr<Expr> init;
     bool escapes=false;
+    Access* access=nullptr;
     VarDeclStmt(SourceLocation l,TypeRef t,std::string n,std::unique_ptr<Expr> i)
         :Stmt(StmtKind::VarDecl,l),type(std::move(t)),name(std::move(n)),init(std::move(i)){}
 };
@@ -237,6 +239,7 @@ struct Param{
     std::string name;
     SourceLocation loc;
     bool escapes=false;
+    Access* access=nullptr;
 };
 
 struct Field{
@@ -251,6 +254,7 @@ public:
     std::string name;
     std::vector<Param> params;
     std::unique_ptr<BlockStmt> body;
+    std::unique_ptr<Frame> frame;
     FuncDecl(SourceLocation l,TypeRef rt,std::string n,std::vector<Param> p,std::unique_ptr<BlockStmt> b)
         :Decl(DeclKind::Func,l),returnType(std::move(rt)),name(std::move(n)),params(std::move(p)),body(std::move(b)){}
 };

@@ -180,6 +180,7 @@ void AstPrinter::printFuncDecl(const FuncDecl& f){
     for(const auto& p:f.params){
         std::string s="Param "+p.name+": "+typeRefStr(p.type);
         if(p.escapes)s+=" (escapes)";
+        if(p.access)s+=" -> "+p.access->toString();
         line(s);
     }
     if(f.body)printBlock(*f.body);
@@ -217,6 +218,7 @@ void AstPrinter::printBlock(const BlockStmt& b){
 void AstPrinter::printVarDecl(const VarDeclStmt& v){
     std::string header="VarDecl "+v.name+": "+typeRefStr(v.type);
     if(v.escapes)header+=" (escapes)";
+    if(v.access)header+=" -> "+v.access->toString();
     enter(header);
     if(v.init){
         enter("init:");

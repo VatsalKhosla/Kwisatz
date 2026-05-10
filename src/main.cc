@@ -4,6 +4,7 @@
 #include <sstream>
 #include <iostream>
 
+#include "kwisatz/frame/builder.h"
 #include "kwisatz/semant/escape.h"
 #include "kwisatz/semant/type_checker.h"
 #include "kwisatz/ast/printer.h"
@@ -46,6 +47,9 @@ int main(int argc, char** argv) {
     kwisatz::EscapeAnalyzer ea;
     ea.analyze(prog);
     
+    kwisatz::FrameBuilder fb;
+    fb.build(prog);
+
     bool dumpAst=false;
    // std::string inputPath;
     for(int i=1;i<argc;i++){
