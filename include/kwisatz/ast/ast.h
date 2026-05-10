@@ -163,6 +163,7 @@ public:
     TypeRef type;
     std::string name;
     std::unique_ptr<Expr> init;
+    bool escapes=false;
     VarDeclStmt(SourceLocation l,TypeRef t,std::string n,std::unique_ptr<Expr> i)
         :Stmt(StmtKind::VarDecl,l),type(std::move(t)),name(std::move(n)),init(std::move(i)){}
 };
@@ -235,6 +236,7 @@ struct Param{
     TypeRef type;
     std::string name;
     SourceLocation loc;
+    bool escapes=false;
 };
 
 struct Field{

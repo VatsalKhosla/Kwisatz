@@ -19,4 +19,5 @@ add_executable(kwisatz
     src/semant/env.cc
     src/semant/type_checker.cc
     src/frame/temp.cc
+    src/semant/escape.cc
 )

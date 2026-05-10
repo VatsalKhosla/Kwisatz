@@ -178,7 +178,9 @@ void AstPrinter::printDecl(const Decl& d){
 void AstPrinter::printFuncDecl(const FuncDecl& f){
     enter("FuncDecl "+f.name+" -> "+typeRefStr(f.returnType));
     for(const auto& p:f.params){
-        line("Param "+p.name+": "+typeRefStr(p.type));
+        std::string s="Param "+p.name+": "+typeRefStr(p.type);
+        if(p.escapes)s+=" (escapes)";
+        line(s);
     }
     if(f.body)printBlock(*f.body);
     leave();
@@ -213,7 +215,9 @@ void AstPrinter::printBlock(const BlockStmt& b){
 }
 
 void AstPrinter::printVarDecl(const VarDeclStmt& v){
-    enter("VarDecl "+v.name+": "+typeRefStr(v.type));
+    std::string header="VarDecl "+v.name+": "+typeRefStr(v.type);
+    if(v.escapes)header+=" (escapes)";
+    enter(header);
     if(v.init){
         enter("init:");
         printExpr(*v.init);

@@ -4,7 +4,8 @@
 #include <sstream>
 #include <iostream>
 
-#include"kwisatz/semant/type_checker.h"
+#include "kwisatz/semant/escape.h"
+#include "kwisatz/semant/type_checker.h"
 #include "kwisatz/ast/printer.h"
 #include "kwisatz/parse/parser.h"
 #include "kwisatz/ast/ast.h"
@@ -42,6 +43,9 @@ int main(int argc, char** argv) {
 
     std::printf("type-checked %zu top-level declarations\n",prog.decls.size());
 
+    kwisatz::EscapeAnalyzer ea;
+    ea.analyze(prog);
+    
     bool dumpAst=false;
    // std::string inputPath;
     for(int i=1;i<argc;i++){
@@ -51,6 +55,8 @@ int main(int argc, char** argv) {
     }
 
     if(dumpAst)kwisatz::printProgram(prog,std::cout);
+
+
 
     //LEXER UNIT TEST
     /*for(;;){
