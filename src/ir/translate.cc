@@ -1,4 +1,5 @@
 #include"kwisatz/ir/translate.h"
+#include"kwisatz/semant/type.h"
 
 #include<utility>
 
@@ -132,6 +133,7 @@ void IrTranslator::translate(Program& prog){
 }
 
 void IrTranslator::translateFunc(FuncDecl& f){
+    allFuncs_.push_back(&f);
     Frame* prev=currentFrame_;
     Label prevEnd=currentEndLabel_;
     bool prevIn=inFunction_;
@@ -278,10 +280,22 @@ TrExp IrTranslator::translateExprT(Expr& e){
             return translateBinary(static_cast<BinaryExpr&>(e));
         case ExprKind::Unary:
             return translateUnary(static_cast<UnaryExpr&>(e));
-        default:
-            return TrExp::makeEx(std::make_unique<ir::ConstExp>(0));
+        case ExprKind::StringLit:
+            return translateStringLit(static_cast<StringLitExpr&>(e));
+        case ExprKind::Call:
+            return translateCall(static_cast<CallExpr&>(e));
+        case ExprKind::Index:
+            return translateIndex(static_cast<IndexExpr&>(e));
+        case ExprKind::Field:
+            return translateField(static_cast<FieldExpr&>(e));
+        case ExprKind::NewStruct:
+            return translateNewStruct(static_cast<NewStructExpr&>(e));
+        case ExprKind::NewArray:
+            return translateNewArray(static_cast<NewArrayExpr&>(e));
     }
+    return TrExp::makeEx(std::make_unique<ir::ConstExp>(0));
 }
+
 TrExp IrTranslator::translateBinary(BinaryExpr& b){
     auto arith=[&](ir::BinOp op){
         auto l=translateExpr(*b.lhs);
@@ -371,5 +385,105 @@ TrExp IrTranslator::translateUnary(UnaryExpr& u){
     return TrExp::makeEx(std::make_unique<ir::ConstExp>(0));
 }
 
+
+TrExp IrTranslator::translateStringLit(StringLitExpr& s){
+    Label l=newLabel();
+    strings_.push_back(StringFragment{l,s.value});
+    return TrExp::makeEx(std::make_unique<ir::NameExp>(l));
 }
 
+TrExp IrTranslator::translateCall(CallExpr& c){
+    if(c.callee->kind==ExprKind::Var){
+        const auto& v=static_cast<const VarExpr&>(*c.callee);
+        if(v.name=="length"&&c.args.size()==1){
+            auto arrExp=translateExpr(*c.args[0]);
+            return TrExp::makeEx(std::make_unique<ir::MemExp>(std::move(arrExp)));
+        }
+    }
+    auto callee=translateExpr(*c.callee);
+    std::vector<std::unique_ptr<ir::Exp>> args;
+    for(auto& a:c.args)args.push_back(translateExpr(*a));
+    return TrExp::makeEx(std::make_unique<ir::CallExp>(std::move(callee),std::move(args)));
+}
+TrExp IrTranslator::translateIndex(IndexExpr& i){
+    auto arrExp=translateExpr(*i.arr);
+    auto idxExp=translateExpr(*i.index);
+    int ws=currentFrame_->wordSize();
+    auto idxPlus1=std::make_unique<ir::BinOpExp>(
+        ir::BinOp::Plus,
+        std::move(idxExp),
+        std::make_unique<ir::ConstExp>(1));
+    auto byteOff=std::make_unique<ir::BinOpExp>(
+        ir::BinOp::Mul,
+        std::move(idxPlus1),
+        std::make_unique<ir::ConstExp>(ws));
+    auto addr=std::make_unique<ir::BinOpExp>(
+        ir::BinOp::Plus,
+        std::move(arrExp),
+        std::move(byteOff));
+    return TrExp::makeEx(std::make_unique<ir::MemExp>(std::move(addr)));
+}
+
+TrExp IrTranslator::translateField(FieldExpr& f){
+    auto objExp=translateExpr(*f.obj);
+    int offset=0;
+    int ws=currentFrame_->wordSize();
+    if(f.obj->type&&f.obj->type->kind==TypeKind::Struct){
+        auto* st=static_cast<StructType*>(f.obj->type);
+        for(const auto& field:st->fields){
+            if(field.name==f.name)break;
+            offset+=ws;
+        }
+    }
+    auto addr=std::make_unique<ir::BinOpExp>(
+        ir::BinOp::Plus,
+        std::move(objExp),
+        std::make_unique<ir::ConstExp>(offset));
+    return TrExp::makeEx(std::make_unique<ir::MemExp>(std::move(addr)));
+}
+TrExp IrTranslator::translateNewStruct(NewStructExpr& n){
+    int ws=currentFrame_->wordSize();
+    int numFields=static_cast<int>(n.args.size());
+    int size=numFields*ws;
+
+    Temp ptr=newTemp();
+
+    std::vector<std::unique_ptr<ir::Exp>> allocArgs;
+    allocArgs.push_back(std::make_unique<ir::ConstExp>(size));
+    auto allocCall=std::make_unique<ir::CallExp>(
+        std::make_unique<ir::NameExp>(namedLabel("kw_alloc")),
+        std::move(allocArgs));
+
+    std::vector<std::unique_ptr<ir::Stm>> stmts;
+    stmts.push_back(std::make_unique<ir::MoveStm>(
+        std::make_unique<ir::TempExp>(ptr),
+        std::move(allocCall)));
+
+    int offset=0;
+    for(auto& arg:n.args){
+        auto argExp=translateExpr(*arg);
+        auto fieldAddr=std::make_unique<ir::BinOpExp>(
+            ir::BinOp::Plus,
+            std::make_unique<ir::TempExp>(ptr),
+            std::make_unique<ir::ConstExp>(offset));
+        stmts.push_back(std::make_unique<ir::MoveStm>(
+            std::make_unique<ir::MemExp>(std::move(fieldAddr)),
+            std::move(argExp)));
+        offset+=ws;
+    }
+
+    return TrExp::makeEx(std::make_unique<ir::ESeqExp>(
+        seqAll(std::move(stmts)),
+        std::make_unique<ir::TempExp>(ptr)));
+}
+
+TrExp IrTranslator::translateNewArray(NewArrayExpr& n){
+    auto lenExp=translateExpr(*n.length);
+    std::vector<std::unique_ptr<ir::Exp>> args;
+    args.push_back(std::move(lenExp));
+    return TrExp::makeEx(std::make_unique<ir::CallExp>(
+        std::make_unique<ir::NameExp>(namedLabel("kw_array_alloc")),
+        std::move(args)));
+}
+
+}

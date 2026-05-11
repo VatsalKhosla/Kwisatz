@@ -35,6 +35,13 @@ public:
 
     std::unique_ptr<ir::Exp> translateExpr(Expr& e);
     std::unique_ptr<ir::Stm> translateStmt(Stmt& s);
+    struct StringFragment{
+        Label label;
+        std::string value;
+    };
+    const std::vector<StringFragment>& strings()const{return strings_;}
+    const std::vector<FuncDecl*>& functions()const{return allFuncs_;}
+
 
 private:
     Frame* currentFrame_;
@@ -42,6 +49,9 @@ private:
     bool inFunction_;
     std::vector<Label> breakLabels_;
     std::vector<std::unordered_map<std::string,Access*>> scopes_;
+    std::vector<StringFragment> strings_;
+    std::vector<FuncDecl*> allFuncs_;
+
 
     void enterScope();
     void exitScope();
@@ -55,6 +65,12 @@ private:
     TrExp translateAnd(BinaryExpr& b);
     TrExp translateOr(BinaryExpr& b);
     TrExp translateUnary(UnaryExpr& u);
+    TrExp translateCall(CallExpr& c);
+    TrExp translateIndex(IndexExpr& i);
+    TrExp translateField(FieldExpr& f);
+    TrExp translateNewStruct(NewStructExpr& n);
+    TrExp translateNewArray(NewArrayExpr& n);
+    TrExp translateStringLit(StringLitExpr& s);
 
     std::unique_ptr<ir::Exp> unEx(TrExp tr);
     std::unique_ptr<ir::Stm> unNx(TrExp tr);

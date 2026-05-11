@@ -23,4 +23,5 @@ add_executable(kwisatz
     src/frame/mips_frame.cc
     src/frame/builder.cc
     src/ir/translate.cc
+    src/ir/printer.cc
 )

@@ -4,6 +4,8 @@
 #include <sstream>
 #include <iostream>
 
+#include"kwisatz/ir/translate.h"
+#include"kwisatz/ir/printer.h"
 #include "kwisatz/frame/builder.h"
 #include "kwisatz/semant/escape.h"
 #include "kwisatz/semant/type_checker.h"
@@ -50,15 +52,21 @@ int main(int argc, char** argv) {
     kwisatz::FrameBuilder fb;
     fb.build(prog);
 
+    kwisatz::IrTranslator irtr;
+    irtr.translate(prog);
+
     bool dumpAst=false;
+    bool dumpIr=false;
    // std::string inputPath;
     for(int i=1;i<argc;i++){
         std::string a=argv[i];
         if(a=="--dump-ast")dumpAst=true;
+        else if(a=="--dump-ir")dumpIr=true;
         else inputPath=a;
     }
 
     if(dumpAst)kwisatz::printProgram(prog,std::cout);
+    if(dumpIr)kwisatz::printIrProgram(prog,irtr,std::cout);
 
 
 
